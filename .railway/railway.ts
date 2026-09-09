@@ -70,6 +70,7 @@ export default defineRailway((ctx) => {
       VITE_FRONTEND_URL: "https://${{RAILWAY_PUBLIC_DOMAIN}}",
       VITE_API_URL_CLIENT: "https://${{RAILWAY_PUBLIC_DOMAIN}}/api",
       VITE_API_URL_SERVER: "http://localhost:80/api",
+      VITE_STRIPE_PUBLISHABLE_KEY: "",
       SEED_DEMO: "true",
       DEMO_SEED_EMAIL,
       DEMO_SEED_PASSWORD,
