@@ -160,8 +160,8 @@ bootstrap() {
     fi
 
     prepare_laravel
-    run_demo_seed
     start_app_workers
+    run_demo_seed
 }
 
 SUPERVISOR_PID=""
