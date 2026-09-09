@@ -3,6 +3,13 @@
 # Listen first so Railway /up can pass, then migrate and seed.
 # Seed failures must not take the container down.
 
+# libpq defaults to ~/.postgresql/postgresql.crt. The all-in-one image
+# has that path under /root; www-data (php-fpm, queue, scheduler) cannot
+# read it, so SSL connections to Supabase fail with "Permission denied".
+rm -f /root/.postgresql/postgresql.crt /root/.postgresql/postgresql.key
+export PGSSLCERT="${PGSSLCERT:-/tmp/pg-no-client-cert}"
+export PGSSLKEY="${PGSSLKEY:-/tmp/pg-no-client-key}"
+
 cd /app/backend
 
 log() {
