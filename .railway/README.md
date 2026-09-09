@@ -11,8 +11,11 @@ commit identity for PR blast-radius verification.
 - **Redis** — queues, cache, sessions
 - **hi-events-storage** — persistent Laravel storage volume
 
-On boot the container migrates, then runs `php artisan demo:seed --confirm
---skip-if-exists` when `SEED_DEMO=true`. Health is `GET /up`.
+On boot nginx and PHP-FPM start immediately so `GET /up` can pass. The
+container then waits for Postgres, migrates with retries, runs
+`php artisan demo:seed --confirm --skip-if-exists` when `SEED_DEMO=true`,
+and only then starts Node, the queue worker, and the scheduler. Seed
+failures are logged and retried; they do not take the replica down.
 
 ## Demo login
 

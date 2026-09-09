@@ -31,7 +31,7 @@ export default defineRailway((ctx) => {
     start:
       "/bin/sh -c 'mkdir -p /app/backend/storage/framework/views /app/backend/storage/framework/cache/data /app/backend/storage/framework/sessions /app/backend/storage/logs /app/backend/storage/app/public /app/backend/storage/app/private && exec /startup.sh'",
     healthcheck: "/up",
-    healthcheckTimeout: 300,
+    healthcheckTimeout: 600,
     deploy: {
       restartPolicyType: "ON_FAILURE",
       restartPolicyMaxRetries: 10,

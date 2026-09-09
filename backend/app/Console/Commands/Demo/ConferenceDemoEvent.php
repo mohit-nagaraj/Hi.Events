@@ -31,6 +31,8 @@ class ConferenceDemoEvent
 {
     public const KEY = 'conference';
 
+    public const TITLE = 'RUNTIME 26 — Two days on the systems behind the systems';
+
     public function __construct(
         private readonly DemoSeedContext $ctx,
         private readonly string $timezone,
@@ -66,7 +68,7 @@ class ConferenceDemoEvent
         ));
 
         $event = $this->ctx->createEvent->handle(new CreateEventDTO(
-            title: 'RUNTIME 26 — Two days on the systems behind the systems',
+            title: self::TITLE,
             organizer_id: $owner->organizer_id,
             account_id: $owner->account_id,
             user_id: $owner->user_id,

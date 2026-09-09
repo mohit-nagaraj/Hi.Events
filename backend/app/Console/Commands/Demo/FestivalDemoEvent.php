@@ -34,6 +34,8 @@ class FestivalDemoEvent
 {
     public const KEY = 'festival';
 
+    public const TITLE = 'TIDELINE — Three days on the Beara Peninsula';
+
     private const SITE_CAPACITY = 4000;
 
     private const CAMPSITE_CAPACITY = 1200;
@@ -68,7 +70,7 @@ class FestivalDemoEvent
         ));
 
         $event = $this->ctx->createEvent->handle(new CreateEventDTO(
-            title: 'TIDELINE — Three days on the Beara Peninsula',
+            title: self::TITLE,
             organizer_id: $owner->organizer_id,
             account_id: $owner->account_id,
             user_id: $owner->user_id,

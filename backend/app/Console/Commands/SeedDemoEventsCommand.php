@@ -28,7 +28,7 @@ class SeedDemoEventsCommand extends Command
         {--organizer-id= : Attach the events to an existing organizer instead of creating a demo account}
         {--email= : Email for the created demo account (defaults to demo+<timestamp>@example.com)}
         {--password=DemoPass123! : Password for the created demo account}
-        {--skip-if-exists : Skip when the demo email already has an account with events}
+        {--skip-if-exists : Skip demo events whose titles already exist for the demo account}
         {--only=* : Seed only these events: nightclub, conference, yoga, festival}
         {--timezone=Europe/Dublin : Timezone for the seeded events}
         {--currency=EUR : Currency code for the seeded events}';
@@ -46,12 +46,6 @@ class SeedDemoEventsCommand extends Command
             $this->line('Re-run with --confirm once you are sure this is the right database.');
 
             return self::FAILURE;
-        }
-
-        if ($this->shouldSkipBecauseAlreadySeeded($db)) {
-            $this->info('Demo account already exists with events; skipping seed.');
-
-            return self::SUCCESS;
         }
 
         $selected = $this->selectedEvents();
@@ -73,6 +67,14 @@ class SeedDemoEventsCommand extends Command
 
         $this->warnIfAccountUnverified($db, $owner);
 
+        $selected = $this->eventsStillNeeded($db, $owner, $selected);
+
+        if ($selected === []) {
+            $this->info('Demo account already has the requested events; skipping seed.');
+
+            return self::SUCCESS;
+        }
+
         $builders = [
             NightclubDemoEvent::KEY => fn () => (new NightclubDemoEvent($context, $timezone, $currency))->seed($owner),
             ConferenceDemoEvent::KEY => fn () => (new ConferenceDemoEvent($context, $timezone, $currency))->seed($owner),
@@ -86,7 +88,7 @@ class SeedDemoEventsCommand extends Command
             $this->line('Seeding '.$key.' …');
 
             try {
-                $seeded[] = $db->transaction($builders[$key]);
+                $seeded[] = $this->seedEventWithRetry($db, $builders[$key], $key);
             } catch (Throwable $e) {
                 $this->error('Failed while seeding '.$key.': '.$e->getMessage());
                 $this->line($e->getFile().':'.$e->getLine());
@@ -100,28 +102,81 @@ class SeedDemoEventsCommand extends Command
         return self::SUCCESS;
     }
 
-    private function shouldSkipBecauseAlreadySeeded(DatabaseManager $db): bool
+    /**
+     * @param  list<string>  $selected
+     * @return list<string>
+     */
+    private function eventsStillNeeded(DatabaseManager $db, DemoOwner $owner, array $selected): array
     {
         if (! $this->option('skip-if-exists')) {
-            return false;
+            return $selected;
         }
 
-        $email = $this->option('email');
-        if (! is_string($email) || $email === '') {
-            return false;
+        $titles = $this->demoEventTitles();
+        $needed = [];
+
+        foreach ($selected as $key) {
+            $exists = $db->table('events')
+                ->where('account_id', $owner->account_id)
+                ->where('title', $titles[$key])
+                ->whereNull('deleted_at')
+                ->exists();
+
+            if ($exists) {
+                $this->line('Skipping '.$key.' — already seeded.');
+
+                continue;
+            }
+
+            $needed[] = $key;
         }
 
-        $userId = $db->table('users')->where('email', $email)->value('id');
-        if ($userId === null) {
-            return false;
+        return $needed;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function demoEventTitles(): array
+    {
+        return [
+            NightclubDemoEvent::KEY => NightclubDemoEvent::TITLE,
+            ConferenceDemoEvent::KEY => ConferenceDemoEvent::TITLE,
+            YogaDemoEvent::KEY => YogaDemoEvent::TITLE,
+            FestivalDemoEvent::KEY => FestivalDemoEvent::TITLE,
+        ];
+    }
+
+    /**
+     * @param  callable(): SeededDemoEvent  $builder
+     */
+    private function seedEventWithRetry(DatabaseManager $db, callable $builder, string $key): SeededDemoEvent
+    {
+        $attempts = 3;
+        $last = null;
+
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            try {
+                return $db->transaction($builder);
+            } catch (Throwable $e) {
+                $last = $e;
+                $this->warn('Seeding '.$key.' failed (attempt '.$attempt.'/'.$attempts.'): '.$e->getMessage());
+                $this->reconnect($db);
+                sleep(5);
+            }
         }
 
-        $accountId = $db->table('account_users')->where('user_id', $userId)->orderBy('id')->value('account_id');
-        if ($accountId === null) {
-            return false;
-        }
+        throw $last ?? new RuntimeException('Seeding '.$key.' failed.');
+    }
 
-        return $db->table('events')->where('account_id', $accountId)->whereNull('deleted_at')->exists();
+    private function reconnect(DatabaseManager $db): void
+    {
+        try {
+            $db->purge();
+            $db->reconnect();
+        } catch (Throwable) {
+            // The next attempt will surface a fresh connection error.
+        }
     }
 
     private function selectedEvents(): ?array
@@ -182,6 +237,13 @@ class SeedDemoEventsCommand extends Command
         $email = $this->option('email') ?: 'demo+'.now()->format('YmdHis').'@example.com';
         $password = (string) $this->option('password');
 
+        $existing = $this->existingOwnerForEmail($db, $email);
+        if ($existing !== null) {
+            $this->info('Using existing demo account '.$email);
+
+            return $existing;
+        }
+
         $account = $createAccountHandler->handle(new CreateAccountDTO(
             email: $email,
             password: $password,
@@ -218,6 +280,36 @@ class SeedDemoEventsCommand extends Command
         return new DemoOwner(
             account_id: $account->getId(),
             organizer_id: $organizer->getId(),
+            user_id: $user->id,
+        );
+    }
+
+    private function existingOwnerForEmail(DatabaseManager $db, string $email): ?DemoOwner
+    {
+        $user = User::where('email', $email)->first();
+        if ($user === null) {
+            return null;
+        }
+
+        $accountId = $db->table('account_users')->where('user_id', $user->id)->orderBy('id')->value('account_id');
+        if ($accountId === null) {
+            throw new RuntimeException('Existing demo user '.$email.' has no account.');
+        }
+
+        $organizerId = $db->table('organizers')
+            ->where('account_id', $accountId)
+            ->whereNull('deleted_at')
+            ->orderBy('id')
+            ->value('id');
+        if ($organizerId === null) {
+            throw new RuntimeException('Existing demo account for '.$email.' has no organizer.');
+        }
+
+        $this->authenticate($user->id);
+
+        return new DemoOwner(
+            account_id: (int) $accountId,
+            organizer_id: (int) $organizerId,
             user_id: $user->id,
         );
     }

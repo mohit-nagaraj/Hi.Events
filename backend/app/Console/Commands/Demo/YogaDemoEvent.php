@@ -33,6 +33,8 @@ class YogaDemoEvent
 {
     public const KEY = 'yoga';
 
+    public const TITLE = 'Stillroom — Morning Practice & Weekend Specials';
+
     private const WEEKEND_BASE_PRICE = 32.00;
 
     public function __construct(
@@ -64,7 +66,7 @@ class YogaDemoEvent
         ));
 
         $event = $this->ctx->createEvent->handle(new CreateEventDTO(
-            title: 'Stillroom — Morning Practice & Weekend Specials',
+            title: self::TITLE,
             organizer_id: $owner->organizer_id,
             account_id: $owner->account_id,
             user_id: $owner->user_id,

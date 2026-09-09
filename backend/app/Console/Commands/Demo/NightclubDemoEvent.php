@@ -29,6 +29,8 @@ class NightclubDemoEvent
 {
     public const KEY = 'nightclub';
 
+    public const TITLE = 'SUBTERRA 004 — Nite Kernel, Ánima, Basil Wren';
+
     public function __construct(
         private readonly DemoSeedContext $ctx,
         private readonly string $timezone,
@@ -60,7 +62,7 @@ class NightclubDemoEvent
         ));
 
         $event = $this->ctx->createEvent->handle(new CreateEventDTO(
-            title: 'SUBTERRA 004 — Nite Kernel, Ánima, Basil Wren',
+            title: self::TITLE,
             organizer_id: $owner->organizer_id,
             account_id: $owner->account_id,
             user_id: $owner->user_id,
