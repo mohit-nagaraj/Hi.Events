@@ -28,6 +28,7 @@ class SeedDemoEventsCommand extends Command
         {--organizer-id= : Attach the events to an existing organizer instead of creating a demo account}
         {--email= : Email for the created demo account (defaults to demo+<timestamp>@example.com)}
         {--password=DemoPass123! : Password for the created demo account}
+        {--skip-if-exists : Skip when the demo email already has an account with events}
         {--only=* : Seed only these events: nightclub, conference, yoga, festival}
         {--timezone=Europe/Dublin : Timezone for the seeded events}
         {--currency=EUR : Currency code for the seeded events}';
@@ -45,6 +46,12 @@ class SeedDemoEventsCommand extends Command
             $this->line('Re-run with --confirm once you are sure this is the right database.');
 
             return self::FAILURE;
+        }
+
+        if ($this->shouldSkipBecauseAlreadySeeded($db)) {
+            $this->info('Demo account already exists with events; skipping seed.');
+
+            return self::SUCCESS;
         }
 
         $selected = $this->selectedEvents();
@@ -91,6 +98,30 @@ class SeedDemoEventsCommand extends Command
         $this->report($owner, $seeded);
 
         return self::SUCCESS;
+    }
+
+    private function shouldSkipBecauseAlreadySeeded(DatabaseManager $db): bool
+    {
+        if (! $this->option('skip-if-exists')) {
+            return false;
+        }
+
+        $email = $this->option('email');
+        if (! is_string($email) || $email === '') {
+            return false;
+        }
+
+        $userId = $db->table('users')->where('email', $email)->value('id');
+        if ($userId === null) {
+            return false;
+        }
+
+        $accountId = $db->table('account_users')->where('user_id', $userId)->orderBy('id')->value('account_id');
+        if ($accountId === null) {
+            return false;
+        }
+
+        return $db->table('events')->where('account_id', $accountId)->whereNull('deleted_at')->exists();
     }
 
     private function selectedEvents(): ?array

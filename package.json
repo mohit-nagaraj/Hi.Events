@@ -1,0 +1,9 @@
+{
+  "name": "hi-events-railway",
+  "private": true,
+  "type": "module",
+  "description": "Railway IaC SDK for the Hi.Events fork. Not the application runtime.",
+  "dependencies": {
+    "railway": "^3.11.0"
+  }
+}

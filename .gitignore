@@ -1,5 +1,6 @@
 ./.idea
 ./node_modules
+node_modules/
 ./.phpunit.result.cache
 .DS_Store
 /.idea/**
@@ -25,6 +26,8 @@ prompts/
 .claude/scheduled_tasks.lock
 tmp_translate/
 test_results/
+.railway-secrets.tmp
+
 
 /demo-reel/**
 /demo-reel/

@@ -11,6 +11,22 @@ if ! php artisan migrate --force; then
     exit 1
 fi
 
+if [ "${SEED_DEMO:-false}" = "true" ]; then
+    if [ -z "${DEMO_SEED_EMAIL:-}" ] || [ -z "${DEMO_SEED_PASSWORD:-}" ]; then
+        echo "============================================"
+        echo "ERROR: SEED_DEMO=true requires DEMO_SEED_EMAIL and DEMO_SEED_PASSWORD."
+        echo "============================================"
+        exit 1
+    fi
+
+    if ! php artisan demo:seed --confirm --skip-if-exists --email="$DEMO_SEED_EMAIL" --password="$DEMO_SEED_PASSWORD"; then
+        echo "============================================"
+        echo "ERROR: Demo seed could not complete."
+        echo "============================================"
+        exit 1
+    fi
+fi
+
 php artisan cache:clear
 php artisan config:clear
 php artisan route:clear
