@@ -33,10 +33,17 @@ $port = $parts['port'] ?? 5432;
 $db = ltrim($parts['path'] ?? '/railway', '/');
 $user = urldecode($parts['user'] ?? 'postgres');
 $pass = urldecode($parts['pass'] ?? '');
+$sslmode = getenv('PGSSLMODE') ?: 'prefer';
+if (!empty($parts['query'])) {
+    parse_str($parts['query'], $query);
+    if (!empty($query['sslmode'])) {
+        $sslmode = $query['sslmode'];
+    }
+}
 
 try {
     new PDO(
-        sprintf('pgsql:host=%s;port=%s;dbname=%s', $host, $port, $db),
+        sprintf('pgsql:host=%s;port=%s;dbname=%s;sslmode=%s', $host, $port, $db, $sslmode),
         $user,
         $pass,
         [

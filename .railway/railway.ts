@@ -2,11 +2,9 @@ import {
   defineRailway,
   github,
   group,
-  postgres,
   project,
   redis,
   service,
-  volume,
 } from "railway/iac";
 
 const REPO = "mohit-nagaraj/Hi.Events";
@@ -18,9 +16,11 @@ function laravelAppKey(hex: string): string {
 }
 
 export default defineRailway((ctx) => {
-  const db = postgres("Postgres");
+  // Live topology (dashboard): Hi-Events + Redis only. Postgres and object
+  // storage are Supabase. Do not add a Railway Postgres plugin — PR previews
+  // must inherit the shared DATABASE_URL instead of cloning an empty database.
+  // This file is a stub: `railway config plan` is broken on Windows.
   const cache = redis("Redis");
-  const uploads = volume("hi-events-storage", { sizeMB: 2048 });
 
   const app = service("Hi-Events", {
     source: github(REPO, { branch: "develop" }),
@@ -36,9 +36,6 @@ export default defineRailway((ctx) => {
       restartPolicyType: "ON_FAILURE",
       restartPolicyMaxRetries: 10,
     },
-    volumeMounts: {
-      "/app/backend/storage": uploads,
-    },
     env: {
       PORT: "80",
       APP_ENV: "production",
@@ -48,7 +45,8 @@ export default defineRailway((ctx) => {
       JWT_SECRET: ctx.randomString("jwt-secret", 32),
       LOG_CHANNEL: "stderr",
       DB_CONNECTION: "pgsql",
-      DATABASE_URL: db.env.DATABASE_URL,
+      // Set in the dashboard (Supabase session pooler). Do not reference a Railway plugin.
+      DATABASE_URL: "",
       REDIS_HOST: cache.env.REDISHOST,
       REDIS_PORT: cache.env.REDISPORT,
       REDIS_PASSWORD: cache.env.REDIS_PASSWORD,
@@ -58,26 +56,27 @@ export default defineRailway((ctx) => {
       MAIL_MAILER: "log",
       MAIL_FROM_NAME: "Hi.Events",
       MAIL_FROM_ADDRESS: "noreply@hi.events",
-      FILESYSTEM_PUBLIC_DISK: "public",
-      FILESYSTEM_PRIVATE_DISK: "local",
+      FILESYSTEM_PUBLIC_DISK: "s3-public",
+      FILESYSTEM_PRIVATE_DISK: "s3-private",
       APP_SAAS_MODE_ENABLED: "false",
       APP_DISABLE_REGISTRATION: "false",
       APP_EVENT_SPAM_CHECK_ENABLED: "false",
       CORS_ALLOWED_ORIGINS: "*",
       APP_FRONTEND_URL: "https://${{RAILWAY_PUBLIC_DOMAIN}}",
-      APP_CDN_URL: "https://${{RAILWAY_PUBLIC_DOMAIN}}/storage",
+      // Set in the dashboard to the Supabase public bucket URL, not /storage.
+      APP_CDN_URL: "",
       VITE_APP_NAME: "Hi.Events",
       VITE_FRONTEND_URL: "https://${{RAILWAY_PUBLIC_DOMAIN}}",
       VITE_API_URL_CLIENT: "https://${{RAILWAY_PUBLIC_DOMAIN}}/api",
       VITE_API_URL_SERVER: "http://localhost:80/api",
       VITE_STRIPE_PUBLISHABLE_KEY: "",
-      SEED_DEMO: "true",
+      SEED_DEMO: "false",
       DEMO_SEED_EMAIL,
       DEMO_SEED_PASSWORD,
     },
   });
 
   return project("hi-events", {
-    resources: [group("Hi.Events", [db, cache, uploads, app])],
+    resources: [group("Hi.Events", [cache, app])],
   });
 });
