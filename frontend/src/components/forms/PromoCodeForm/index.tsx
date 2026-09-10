@@ -41,7 +41,7 @@ export const PromoCodeForm = ({form}: PromoCodeFormProps) => {
     const currencySymbol = getCurrencySymbol(event?.currency as string);
 
     const DiscountIcon = () => {
-        if (form.values.discount_type === 'PERCENTAGE') {
+        if (form.values.discount_type === PromoCodeDiscountType.Percentage) {
             return <IconPercentage/>;
         }
         return currencySymbol;
@@ -107,7 +107,7 @@ export const PromoCodeForm = ({form}: PromoCodeFormProps) => {
                     decimalScale={2} min={0}
                     rightSection={<DiscountIcon/>}
                     {...form.getInputProps('discount')}
-                    label={(form.values.discount_type === 'PERCENTAGE' ? t`Discount %` : t`Discount in ${event.currency}`)}
+                    label={(form.values.discount_type === PromoCodeDiscountType.Percentage ? t`Discount %` : t`Discount in ${event.currency}`)}
                     placeholder="0.00"/>
             </InputGroup>
 
